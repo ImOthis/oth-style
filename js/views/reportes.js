@@ -1,5 +1,8 @@
 import { db } from '../db.js';
-import { fmt, pct, esc, hoy, periodo, fechaHora, costoVenta, metodoTexto, descargarCSV, etiquetaVariante } from '../utils.js';
+import {
+  fmt, pct, esc, hoy, periodo, fechaHora, costoVenta, metodoTexto, descargarCSV, etiquetaVariante, toast, recargar,
+  COLECCIONES, validarRespaldo,
+} from '../utils.js';
 
 let sel = 'hoy';
 
@@ -25,8 +28,47 @@ export async function render(el) {
       <label>Desde<input type="date" id="desde" value="${d0}"></label>
       <label>Hasta<input type="date" id="hasta" value="${d1}"></label>
     </div>
-    <div id="contenido"></div>`;
+    <div id="contenido"></div>
+    <section class="card">
+      <h2>Copia de seguridad</h2>
+      <p class="muted">Descarga un archivo con TODO (productos, ventas, gastos, caja y categorías). Guárdalo en Drive o en el PC, por ejemplo una vez por semana.</p>
+      <div class="fila-botones">
+        <button class="btn btn-primario" id="respaldar">Descargar respaldo completo</button>
+        <label class="btn">Restaurar respaldo<input type="file" id="restaurar" accept=".json,application/json" hidden></label>
+      </div>
+    </section>`;
   const $ = (s) => el.querySelector(s);
+
+  $('#respaldar').onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      const datos = Object.fromEntries(await Promise.all(COLECCIONES.map(async (c) => [c, await db.list(c)])));
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'oth-style', version: 1, fecha: new Date().toISOString(), usuario: db.email(), datos })], { type: 'application/json' }));
+      a.download = `oth-style-respaldo-${hoy()}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast(`Respaldo descargado: ${datos.productos.length} productos, ${datos.ventas.length} ventas, ${datos.gastos.length} gastos.`, 'ok');
+    } catch (err) { toast(err.message, 'error'); }
+    e.target.disabled = false;
+  };
+
+  $('#restaurar').onchange = async (e) => {
+    const archivo = e.target.files[0];
+    e.target.value = '';
+    if (!archivo) return;
+    try {
+      const r = validarRespaldo(await archivo.text());
+      const n = (c) => r.datos[c]?.length || 0;
+      if (!confirm(`¿Restaurar el respaldo del ${fechaHora(r.fecha)}?\n\n${n('productos')} productos, ${n('ventas')} ventas, ${n('gastos')} gastos.\n\n`
+        + 'Lo que está en el respaldo vuelve a quedar como estaba ese día (incluido el stock).\nLo creado después del respaldo NO se borra.')) return;
+      toast('Restaurando… no cierres la app.');
+      const docs = Object.entries(r.datos).flatMap(([c, lista]) => lista.map(({ id, ...data }) => [c, id, data]));
+      for (let i = 0; i < docs.length; i += 100) await Promise.all(docs.slice(i, i + 100).map(([c, id, data]) => db.set(c, id, data)));
+      toast(`Respaldo restaurado (${docs.length} registros).`, 'ok');
+      recargar();
+    } catch (err) { toast(err.message, 'error'); }
+  };
 
   const cargar = async () => {
     const [desde, hasta] = sel === 'rango' ? [$('#desde').value || hoy(), $('#hasta').value || hoy()] : periodo(sel);

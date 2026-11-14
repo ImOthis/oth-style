@@ -158,5 +158,19 @@ export function mostrarComprobante(v, extraHtml = '') {
   return d;
 }
 
+// ---------- Respaldo completo ----------
+export const COLECCIONES = ['categorias', 'productos', 'ventas', 'gastos', 'categoriasGasto', 'caja', 'config'];
+// Revisa que un archivo de respaldo sea de esta app; devuelve sus datos o lanza un error claro.
+export function validarRespaldo(texto) {
+  let r;
+  try { r = JSON.parse(texto); } catch { throw new Error('El archivo no es un respaldo válido.'); }
+  if (r?.app !== 'oth-style' || typeof r.datos !== 'object' || !r.datos) throw new Error('Este archivo no es un respaldo de OTH Style.');
+  for (const [c, docs] of Object.entries(r.datos)) {
+    if (!COLECCIONES.includes(c) || !Array.isArray(docs) || docs.some((d) => typeof d?.id !== 'string' || !d.id || d.id.includes('/')))
+      throw new Error('El respaldo está dañado (' + c + ').');
+  }
+  return r;
+}
+
 // Vuelve a pintar la pantalla actual (crea una vista nueva, sin duplicar eventos).
 export const recargar = () => window.dispatchEvent(new HashChangeEvent('hashchange'));

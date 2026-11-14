@@ -1,6 +1,6 @@
 // Pruebas rápidas de la lógica de dinero y stock. Ejecutar: node tests/utils.test.mjs
 import assert from 'node:assert/strict';
-import { leerPesos, fmt, ajustarStock, periodo, sumarDias } from '../js/utils.js';
+import { leerPesos, fmt, ajustarStock, periodo, sumarDias, validarRespaldo } from '../js/utils.js';
 
 assert.equal(leerPesos('25'), 25000);
 assert.equal(leerPesos('999'), 999000);
@@ -21,4 +21,10 @@ assert.equal(sumarDias('2026-03-01', -1), '2026-02-28');
 const [lunes, hoy] = periodo('semana');
 assert.equal(new Date(lunes + 'T00:00:00Z').getUTCDay(), 1);
 assert.ok(lunes <= hoy);
+const ok = JSON.stringify({ app: 'oth-style', datos: { productos: [{ id: 'a1', nombre: 'X' }], ventas: [] } });
+assert.equal(validarRespaldo(ok).datos.productos.length, 1);
+assert.throws(() => validarRespaldo('{no json'), /no es un respaldo/);
+assert.throws(() => validarRespaldo(JSON.stringify({ app: 'otra', datos: {} })), /no es un respaldo de OTH/);
+assert.throws(() => validarRespaldo(JSON.stringify({ app: 'oth-style', datos: { usuarios: [] } })), /dañado/);
+assert.throws(() => validarRespaldo(JSON.stringify({ app: 'oth-style', datos: { productos: [{ id: 'a/b' }] } })), /dañado/);
 console.log('OK: todas las pruebas pasaron');
