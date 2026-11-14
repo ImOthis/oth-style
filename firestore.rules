@@ -1,12 +1,14 @@
 rules_version = '2';
 
 // SOLO estos correos pueden leer y escribir. Nadie más, aunque logre crear una cuenta.
-// Reemplaza los dos correos de ejemplo por los reales, en minúsculas.
+// Para agregar otro usuario: créalo en Authentication y agrega su correo aquí (minúsculas, entre comillas,
+// separado por coma). Ejemplo: ['johntrujillot5@gmail.com', 'otro@gmail.com']
+// IMPORTANTE: no dejes correos inventados en la lista; cualquiera podría registrarlos.
 service cloud.firestore {
   match /databases/{database}/documents {
     function permitido() {
       return request.auth != null
-        && request.auth.token.email in ['correo1@ejemplo.com', 'correo2@ejemplo.com'];
+        && request.auth.token.email in ['johntrujillot5@gmail.com'];
     }
     match /{documento=**} {
       allow read, write: if permitido();
